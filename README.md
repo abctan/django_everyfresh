@@ -1,2 +1,3 @@
-＃django_everyfresh
 天天生鲜网站项目学习开发
+
+作者：
