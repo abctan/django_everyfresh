@@ -1,2 +1,2 @@
-# django_everyfresh
-django项目
+＃django_everyfresh
+天天生鲜网站项目学习开发
