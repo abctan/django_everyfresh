@@ -1,12 +1,16 @@
 from django.shortcuts import render, redirect
 from django.urls import reverse
+from django.views.generic import View
 from . import models
 import re
 
 
 # Create your views here.
-def register(request):
-    if request.POST:
+class RegisterView(View):
+    def get(self, request):
+        return render(request, 'user/register.html')
+
+    def post(self, request):
         # 获取用户数据
         username = request.POST.get('user_name')
         password = request.POST.get('pwd')
@@ -15,7 +19,7 @@ def register(request):
 
         # 校验数据
         if not all([username, password, email]):
-            return render(request, 'user/register.html', {'errmsg':'数据不完整'})
+            return render(request, 'user/register.html', {'errmsg': '数据不完整'})
         if not re.match(r'^[a-z0-9][\w\.\-]*@[a-z0-9\-]+(\.[a-z]{2,5}){1,2}$', email):
             return render(request, 'user/register.html', {'errmsg': '邮箱格式不正确'})
         if allow != 'on':
@@ -25,7 +29,7 @@ def register(request):
         try:
             user = models.User.objects.get(username=username)
         except models.User.DoesNotExist:
-            user = None # 该用户不存在
+            user = None  # 该用户不存在
         if user:
             return render(request, 'user/register.html', {'errmsg': '用户名已存在'})
 
@@ -35,4 +39,3 @@ def register(request):
         user.save()
         return redirect(reverse('goods:index'))
 
-    return render(request, 'user/register.html')
