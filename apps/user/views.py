@@ -1,8 +1,10 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, HttpResponse
 from django.urls import reverse
 from django.views.generic import View
 from . import models
+from django.conf import settings
 import re
+import itsdangerous
 
 
 # Create your views here.
@@ -37,5 +39,35 @@ class RegisterView(View):
         user = models.User.objects.create_user(username, email, password)
         user.is_active = 0
         user.save()
+
+        # 生成激活链接
+        serializer = itsdangerous.TimedJSONWebSignatureSerializer(settings.SECRET_KEY, 3600)
+        info = {'confirm': user.id}
+        token = serializer.dumps(info)
+        # 发邮箱
+
         return redirect(reverse('goods:index'))
 
+
+class ActiveView(View):
+    '''用户激活类视图'''
+    def get(self, request, token):
+        serializer = itsdangerous.TimedJSONWebSignatureSerializer(settings.SECRET_KEY, 3600)
+        try:
+            info = serializer.loads(token)
+            user_id = info['confirm']
+
+            user = models.User.objects.get(id=user_id)
+            user.is_active = 1
+            user.save()
+            # 跳转到登录页面
+            return redirect(reverse('user:login'))
+        except itsdangerous.SignatureExpired as e:
+            # 激活链接已过期
+            return HttpResponse('激活链接已过期')
+
+
+class LoginView(View):
+    '''登录页面'''
+    def get(self, request):
+        return render(request, 'user/login.html')
