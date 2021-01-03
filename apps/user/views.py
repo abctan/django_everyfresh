@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, HttpResponse
+from django.core.mail import send_mail
 from django.urls import reverse
 from django.views.generic import View
 from . import models
@@ -45,6 +46,13 @@ class RegisterView(View):
         info = {'confirm': user.id}
         token = serializer.dumps(info)
         # 发邮箱
+        subject = '天天生鲜欢迎您'
+        message = ''
+        html_message = "<h1>%s,欢迎您成为天天生鲜注册会员</h1>请点击下方链接激活您的账户<br/><a href='http://127.0.0.1:8000/user/active/%s'>http://127.0.0.1:8000/user/active/%s</a>"\
+                  %(user.username, token.decode('utf-8'), token.decode('utf-8'))
+        sender = settings.EMAIL_FROM
+        receiver = [email]
+        send_mail(subject, message, sender, receiver, html_message=html_message)
 
         return redirect(reverse('goods:index'))
 
@@ -54,7 +62,7 @@ class ActiveView(View):
     def get(self, request, token):
         serializer = itsdangerous.TimedJSONWebSignatureSerializer(settings.SECRET_KEY, 3600)
         try:
-            info = serializer.loads(token)
+            info = serializer.loads(token.encode('utf-8'))
             user_id = info['confirm']
 
             user = models.User.objects.get(id=user_id)
@@ -62,9 +70,12 @@ class ActiveView(View):
             user.save()
             # 跳转到登录页面
             return redirect(reverse('user:login'))
-        except itsdangerous.SignatureExpired as e:
+        except itsdangerous.SignatureExpired:
             # 激活链接已过期
             return HttpResponse('激活链接已过期')
+        except itsdangerous.BadData:
+            return HttpResponse('链接不合法')
+
 
 
 class LoginView(View):
