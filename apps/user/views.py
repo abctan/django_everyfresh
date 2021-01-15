@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, HttpResponse
+from django.contrib.auth import authenticate, login
 from django.core.mail import send_mail
 from django.urls import reverse
 from django.views.generic import View
@@ -81,4 +82,40 @@ class ActiveView(View):
 class LoginView(View):
     '''登录页面'''
     def get(self, request):
-        return render(request, 'user/login.html')
+        if 'username' in request.COOKIES:
+            username = request.COOKIES.get('username')
+            checked  = 'checked'
+        else:
+            username = ''
+            checked  = ''
+
+        return render(request, 'user/login.html', {'username': username, 'checked': checked})
+
+    def post(self, request):
+        username = request.POST.get('username')
+        password = request.POST.get('pwd')
+        rember   = request.POST.get('rember')
+
+        print(rember)
+        if not all([username, password]):
+            return render(request, 'user/login.html', {'errmsg': '数据不完整'})
+
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            # 表示用户已激活
+            if user.is_active:
+                # 保存secesion
+                login(request, user)
+                response = redirect(reverse('goods:index'))
+                # 保存用户名操作
+                if rember == 'on':
+                    response.set_cookie('username', username, max_age=7*24*3600)
+                else:
+                    response.delete_cookie('username')
+                # 返回response
+                return response
+            else:
+                return render(request, 'user/login.html', {'errmsg': '账户未激活'})
+        else:
+            # Return an 'invalid login' error message.
+            return render(request, 'user/login.html', {'errmsg': '用户名或者密码错误'})
