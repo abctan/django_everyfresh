@@ -3,8 +3,10 @@ from django.contrib.auth import authenticate, login, logout
 from django.core.mail import send_mail
 from django.urls import reverse
 from django.views.generic import View
-from . import models
 from django.conf import settings
+from django_redis import get_redis_connection
+from . import models
+from goods.models import GoodsSKU
 import re
 import itsdangerous
 from utils.mixin import LoginRequireMixin
@@ -133,7 +135,23 @@ class LogoutView(View):
 class UserInfoView(LoginRequireMixin, View):
     '''用户中心信息页'''
     def get(self, request):
-        return render(request, 'user/user_center_info.html', {'page': 'user'})
+        # 获取收获地址
+        user = request.user
+        address = models.Address.objects.get_default_addr(user=user)
+        # 获取最近浏览的商品
+        con = get_redis_connection("default")
+
+        history_key = "history_%d"%user.id  # history_id
+        # 获取最新浏览的商品sku ID
+        sku_id = con.lrange(history_key, 0, 4)
+        # 从数据库中查询用户浏览对应的shk商品信息
+        goods_li = []
+        for id in sku_id:
+            goods = GoodsSKU.objects.get(id=id)
+            goods_li.append(goods)
+
+        contex = {'page': 'user', 'address': address, 'goods_li': goods_li}
+        return render(request, 'user/user_center_info.html', contex)
 
 
 class UserOrderView(LoginRequireMixin, View):
