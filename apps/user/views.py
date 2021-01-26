@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, HttpResponse
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.core.mail import send_mail
 from django.urls import reverse
 from django.views.generic import View
@@ -7,6 +7,7 @@ from . import models
 from django.conf import settings
 import re
 import itsdangerous
+from utils.mixin import LoginRequireMixin
 
 
 # Create your views here.
@@ -96,7 +97,6 @@ class LoginView(View):
         password = request.POST.get('pwd')
         rember   = request.POST.get('rember')
 
-        print(rember)
         if not all([username, password]):
             return render(request, 'user/login.html', {'errmsg': '数据不完整'})
 
@@ -106,7 +106,9 @@ class LoginView(View):
             if user.is_active:
                 # 保存secesion
                 login(request, user)
-                response = redirect(reverse('goods:index'))
+                # 获取要调转的页面
+                next_url = request.GET.get('next', reverse('goods:index'))
+                response = redirect(next_url)
                 # 保存用户名操作
                 if rember == 'on':
                     response.set_cookie('username', username, max_age=7*24*3600)
@@ -119,3 +121,78 @@ class LoginView(View):
         else:
             # Return an 'invalid login' error message.
             return render(request, 'user/login.html', {'errmsg': '用户名或者密码错误'})
+
+
+class LogoutView(View):
+    '''退出登录'''
+    def get(self, request):
+        logout(request)
+        return redirect(reverse('goods:index'))
+
+
+class UserInfoView(LoginRequireMixin, View):
+    '''用户中心信息页'''
+    def get(self, request):
+        return render(request, 'user/user_center_info.html', {'page': 'user'})
+
+
+class UserOrderView(LoginRequireMixin, View):
+    '''用户中心订单页'''
+    def get(self, request):
+        return render(request, 'user/user_center_order.html', {'page': 'order'})
+
+
+class AddressView(LoginRequireMixin, View):
+    '''用户中心地址页'''
+    def get(self, request):
+        user = request.user
+        try:
+            address = models.Address.objects.get(user=user, is_default=True)
+        except models.Address.DoesNotExist:
+            # 用户没有默认地址
+            address = None
+        return render(request, 'user/user_center_site.html', {'page': 'address', 'address': address})
+
+    def post(self, request):
+        receiver   = request.POST.get('receiver')
+        addr       = request.POST.get('addr')
+        zip_code   = request.POST.get('zip_code')
+        phone      = request.POST.get('phone')
+        is_default = request.POST.get('is_default')
+
+        if not all([receiver, addr, phone]):
+            return render(request, 'user/user_center_site.html', {'errmsg': '数据不合法'})
+
+        # 业务处理
+        user = request.user
+        try:
+            address = models.Address.objects.get(user=user, is_default=True)
+        except models.Address.DoesNotExist:
+            # 用户没有默认地址
+            address = None
+        if address:
+            is_default = False
+        else:
+            is_default = True
+
+        # 添加地址
+        models.Address.objects.create(user=user, receiver=receiver, addr=addr,
+                                      zip_code=zip_code, phone=phone, is_default=is_default)
+        # 返回应答
+        return redirect(reverse('user:address'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
