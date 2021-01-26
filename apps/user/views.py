@@ -146,11 +146,7 @@ class AddressView(LoginRequireMixin, View):
     '''用户中心地址页'''
     def get(self, request):
         user = request.user
-        try:
-            address = models.Address.objects.get(user=user, is_default=True)
-        except models.Address.DoesNotExist:
-            # 用户没有默认地址
-            address = None
+        address = models.Address.objects.get_default_addr(user=user)
         return render(request, 'user/user_center_site.html', {'page': 'address', 'address': address})
 
     def post(self, request):
@@ -165,11 +161,7 @@ class AddressView(LoginRequireMixin, View):
 
         # 业务处理
         user = request.user
-        try:
-            address = models.Address.objects.get(user=user, is_default=True)
-        except models.Address.DoesNotExist:
-            # 用户没有默认地址
-            address = None
+        address = models.Address.objects.get_default_addr(user=user)
         if address:
             is_default = False
         else:
